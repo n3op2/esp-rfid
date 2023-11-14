@@ -12,20 +12,41 @@
 #define CARD_ADDED_SOUND 21
 #define INTERNAL_LED 2
 
-
-MFRC522 mfrc522(SS_PIN, RST_PIN);
-WebServer server(80);
-
-String masters[] = {};
+/*
+03 40 F1 AA - 7 
+43 71 EA 10 - 8
+B9 2E D4 0D - 6
+80 F3 83 20 - 9
+B3 59 38 0F - edg
+*/
+String masters[] = { "80 F3 83 20", "43 71 EA 10", "B3 59 38 0F", "03 40 F1 AA", "B9 2E D4 0D" };
 String cards[255] = {};  // for multiple cards
 int addedCards = 0;
 bool master = false;
-int MAXTICKS = 20;
-const char* ssid = "";
-const char* password = "";
+int MAXTICKS = 30;
+unsigned long prevMl = 0;
+unsigned long interval = 30000;
+const char* ssid = "hatushka";
+const char* password = "aaaaaaaa";
+
+IPAddress ip(192, 168, 0, 10);
+IPAddress gateway(192, 168, 0, 254);
+IPAddress subnet(255, 255, 255, 0);
+IPAddress dns(192, 168, 0, 254);
+MFRC522 mfrc522(SS_PIN, RST_PIN);
+WebServer server(80);
+
+void initPins() {
+  pinMode(ERROR_LED, OUTPUT);
+  pinMode(MASTER_LED, OUTPUT);
+  pinMode(SUCCESS, OUTPUT);
+  pinMode(RELAY, OUTPUT);
+  pinMode(CARD_ADDED_SOUND, OUTPUT);
+}
 
 void connectWifi() {
   WiFi.mode(WIFI_STA);
+  WiFi.config(ip, gateway, subnet, dns);
   WiFi.begin(ssid, password);
   int retries = 10;
 
@@ -43,19 +64,12 @@ void handleOpen() {
 }
 
 void setup() {
+  initPins();
   Serial.begin(9600);
   delay(10);
   SPI.begin();
   mfrc522.PCD_Init();  // Initiate MFRC522
-  initWiFi();
-  pinMode(ERROR_LED, OUTPUT);
-  pinMode(MASTER_LED, OUTPUT);
-  pinMode(SUCCESS, OUTPUT);
-  pinMode(RELAY, OUTPUT);
-  pinMode(CARD_ADDED_SOUND, OUTPUT);
-  pinMode(INTERNAL_LED, OUTPUT);  
-
-
+  connectWifi();
   server.on("/open", handleOpen);
   server.begin();
 }
@@ -131,7 +145,8 @@ void flash() {
 }
 
 void loop() {
-  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
+  unsigned long = millis();
+
   if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
     Serial.print(millis());
     Serial.println("Reconnecting to WiFi...");
