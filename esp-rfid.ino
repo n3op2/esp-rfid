@@ -26,8 +26,8 @@ bool master = false;
 int MAXTICKS = 30;
 unsigned long prevMl = 0;
 unsigned long interval = 30000;
-const char* ssid = "hatushka";
-const char* password = "aaaaaaaa";
+const char* ssid = "";
+const char* password = ""; // store in flash mem
 
 IPAddress ip(192, 168, 0, 10);
 IPAddress gateway(192, 168, 0, 254);
