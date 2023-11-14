@@ -27,7 +27,7 @@ const char* password = "";
 void handleOpen() {
   digitalWrite(SUCCESS, HIGH);
   digitalWrite(RELAY, HIGH);
-  server.send(200, "text/plain", "Door have been ppened");
+  server.send(200, "text/plain", "It's open, come on in!");
 }
 
 void setup() {
