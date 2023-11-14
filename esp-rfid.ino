@@ -21,8 +21,20 @@ String cards[255] = {};  // for multiple cards
 int addedCards = 0;
 bool master = false;
 int MAXTICKS = 20;
-const char* ssid     = "";
+const char* ssid = "";
 const char* password = "";
+
+void connectWifi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  int retries = 10;
+
+  while (retries > 0) {
+      delay(500);
+      retries--;
+  }
+  Serial.println(WiFi.localIP());
+}
 
 void handleOpen() {
   digitalWrite(SUCCESS, HIGH);
@@ -33,9 +45,9 @@ void handleOpen() {
 void setup() {
   Serial.begin(9600);
   delay(10);
-  WiFi.begin(ssid, password);
   SPI.begin();
   mfrc522.PCD_Init();  // Initiate MFRC522
+  initWiFi();
   pinMode(ERROR_LED, OUTPUT);
   pinMode(MASTER_LED, OUTPUT);
   pinMode(SUCCESS, OUTPUT);
@@ -43,15 +55,7 @@ void setup() {
   pinMode(CARD_ADDED_SOUND, OUTPUT);
   pinMode(INTERNAL_LED, OUTPUT);  
 
-  int retries = 10;
 
-  while (retries > 0) {
-      delay(500);
-      Serial.print(".");
-      retries--;
-  }
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
   server.on("/open", handleOpen);
   server.begin();
 }
@@ -127,6 +131,14 @@ void flash() {
 }
 
 void loop() {
+  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
+  if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
+    Serial.print(millis());
+    Serial.println("Reconnecting to WiFi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    previousMillis = currentMillis;
+  }
   digitalWrite(SUCCESS, LOW);
   digitalWrite(MASTER_LED, LOW);
   digitalWrite(ERROR_LED, LOW);
