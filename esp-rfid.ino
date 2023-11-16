@@ -2,6 +2,7 @@
 #include <MFRC522.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Preferences.h>
 
 #define RST_PIN 27
 #define SS_PIN 5
@@ -12,6 +13,7 @@
 #define CARD_ADDED_SOUND 21
 #define INTERNAL_LED 2
 
+Preferences store;
 /*
 03 40 F1 AA - 7 
 43 71 EA 10 - 8
@@ -26,8 +28,6 @@ bool master = false;
 int MAXTICKS = 30;
 unsigned long prevMl = 0;
 unsigned long interval = 30000;
-const char* ssid = "";
-const char* password = ""; // store in flash mem
 
 IPAddress ip(192, 168, 0, 10);
 IPAddress gateway(192, 168, 0, 254);
@@ -65,6 +65,22 @@ void handleOpen() {
 
 void setup() {
   initPins();
+  store.begin("cards", false);
+  addedCards = store.getInt("count", 0);
+  if (addedCards > 0) {
+    for (int i = 0; i < addedCards; i++) {
+      String card = store.getString(i, ""); 
+      cards[i] = card.s_str();
+    }
+  }
+  String ssid = "";
+  String password = ""; // store in flash mem
+  store.putString("ssid", ssid); 
+  store.putString("password", password);
+  /*
+  ssid = preferences.getString("ssid", ""); 
+  password = preferences.getString("password", "");
+  */
   Serial.begin(9600);
   delay(10);
   SPI.begin();
@@ -103,7 +119,8 @@ void success(bool master) {
 
 bool validateCard(String card) {
   if (addedCards == 255) {
-    addedCards = 0;
+    digitalWrite(ERROR_LED, HIGH);
+    return false;
   }
   for (int i = 0; i < addedCards; i++) {
     if (card.substring(1) == cards[i]) {
@@ -132,7 +149,9 @@ bool validateMaster(String card) {
 void addCard(String card) {
   if (validateCard(card)) {
     cards[addedCards] = card.substring(1);
+    store.putString(addedCards, card.substring(1));
     addedCards++;
+    store.putInt("count", addedCards);
     success(false);
   }
 }
