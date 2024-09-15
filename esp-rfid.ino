@@ -22,7 +22,7 @@ B9 2E D4 0D - 6
 B3 59 38 0F - edg
 */
 String masters[] = { "80 F3 83 20", "43 71 EA 10", "B3 59 38 0F", "03 40 F1 AA", "B9 2E D4 0D" };
-String cards[255] = {};  // for multiple cardsa
+String cards[255] = {};  // for multiple cards
 int addedCards = 0;
 bool master = false;
 size_t cardL = sizeof("80 F3 83 20");
