@@ -1,8 +1,11 @@
 #include <SPI.h>
 #include <MFRC522.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include <WebServer.h>
 #include <Preferences.h>
+#include <WiFiClient.h>
+
 
 #define RST_PIN 27
 #define SS_PIN 5
@@ -14,15 +17,10 @@
 #define INTERNAL_LED 2
 
 Preferences store;
-/*
-03 40 F1 AA - 7 
-43 71 EA 10 - 8
-B9 2E D4 0D - 6
-80 F3 83 20 - 9
-B3 59 38 0F - edg
-*/
-String masters[] = { "80 F3 83 20", "43 71 EA 10", "B3 59 38 0F", "03 40 F1 AA", "B9 2E D4 0D" };
-String cards[255] = {};  // for multiple cardsa
+String masters[] = { "80 F3 83 20", "43 71 EA 10", "B3 59 38 0F", "03 40 F1 AA", "B9 2E D4 0D", "E3 10 D4 F8", "E3 74 CB F5", "05 17 C6 AE", "33 19 43 F6"};
+String cards[255] = {};  // for multiple cards
+String ssid = "hatushka";
+String password = "aaaaaaaa";
 int addedCards = 0;
 bool master = false;
 size_t cardL = sizeof("80 F3 83 20");
@@ -33,9 +31,11 @@ unsigned long interval = 30000;
 IPAddress ip(192, 168, 0, 10);
 IPAddress gateway(192, 168, 0, 254);
 IPAddress subnet(255, 255, 255, 0);
-IPAddress dns(192, 168, 0, 254);
+IPAddress dns(192, 168, 0, 1);
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 WebServer server(80);
+HTTPClient http;
+WiFiClient client;
 
 void initPins() {
   pinMode(ERROR_LED, OUTPUT);
@@ -59,9 +59,26 @@ void connectWifi() {
 }
 
 void handleOpen() {
-  digitalWrite(SUCCESS, HIGH);
-  digitalWrite(RELAY, HIGH);
+  success(false);
   server.send(200, "tex\t/plain", "It's open, come on in!");
+}
+
+void handleAdd() {
+  server.send(200, "text\t/plain", "will add a card");
+}
+
+void handleList() {
+  digitalWrite(MASTER_LED, HIGH);
+  delay(50);
+  String list = "";
+  
+  
+  if (addedCards > 0) {
+    for (int i = 0; i < addedCards; i++) {
+      list = list + "\n" + cards[i];
+    }
+  }
+  server.send(200, "tex\t/plain", list);
 }
 
 void setup() {
@@ -86,6 +103,8 @@ void setup() {
   mfrc522.PCD_Init();  // Initiate MFRC522
   connectWifi();
   server.on("/open", handleOpen);
+  server.on("/card/add", handleAdd);
+  server.on("/card/list", handleList);
   server.begin();
 }
 
@@ -98,22 +117,29 @@ String decode() {
   }
   decoded.toUpperCase();
   Serial.print(decoded.substring(1));
-  Serial.println();
 
-  return decoded;
+  return decoded.substring(1);
 }
 
 void success(bool isNew) {
   if (isNew) {
+    digitalWrite(RELAY, HIGH);
     digitalWrite(CARD_ADDED_SOUND, HIGH);
-    delay(1000);
+    delay(2000);
     digitalWrite(SUCCESS, HIGH);
+    if (http.begin(client, "http://192.168.0.11/success")) {
+      http.end();
+    }
     return delay(1000);
   }
 
   digitalWrite(RELAY, HIGH);
+  digitalWrite(CARD_ADDED_SOUND, HIGH);
   digitalWrite(SUCCESS, HIGH);
   delay(3000);
+  if (http.begin(client, "http://192.168.0.11/success")) {
+    http.end();
+  }
 }
 
 bool validateCard(String card) {
@@ -121,7 +147,7 @@ bool validateCard(String card) {
     addedCards = 0;
   }
   for (int i = 0; i < addedCards; i++) {
-    if (card.substring(1) == cards[i]) {
+    if (card == cards[i]) {
       digitalWrite(ERROR_LED, HIGH);
       delay(2000);
       return false;
@@ -133,7 +159,7 @@ bool validateCard(String card) {
 
 bool validateMaster(String card) {
   for (int i = 0; i < 5; i++) {
-    if (card.substring(1) == masters[i]) {
+    if (card == masters[i]) {
       digitalWrite(ERROR_LED, HIGH);
       delay(2000);
 
@@ -146,8 +172,8 @@ bool validateMaster(String card) {
 
 void addCard(String card) {
   if (validateCard(card)) {
-    cards[addedCards] = card.substring(1);
-    store.putString(String(addedCards).c_str(), card.substring(1));
+    cards[addedCards] = card;
+    store.putString(String(addedCards).c_str(), card);
     addedCards++;
     store.putInt("count", addedCards);
     success(true);
@@ -155,8 +181,8 @@ void addCard(String card) {
 }
 
 void check(String card) {
-  for (int i = 0; i < 5; i++) {
-    if (card.substring(1) == masters[i]) {
+  for (int i = 0; i < 9; i++) {
+    if (card == masters[i]) {
       int ticks = 0;
 
       while (ticks <= MAXTICKS) {
@@ -166,9 +192,9 @@ void check(String card) {
           return addCard(newCard);
         }
         digitalWrite(MASTER_LED, HIGH);
-        delay(250);
+        delay(450);
         digitalWrite(MASTER_LED, LOW);
-        delay(250);
+        delay(50);
         ticks++;
       }
 
@@ -177,7 +203,7 @@ void check(String card) {
   }
 
   for (int i = 0; i < addedCards; i++) {
-    if (card.substring(1) == cards[i]) {
+    if (card == cards[i]) {
       return success(false);
     }
   }
@@ -190,7 +216,6 @@ void hydrate() {
   unsigned long cur = millis();
 
   if (cur - prev >= interval) {
-    Serial.println("Reconnecting to WiFi...");
     WiFi.disconnect();
     WiFi.reconnect();
     prev = cur;
@@ -216,9 +241,8 @@ void loop() {
     return;
   }
 
-
   String card = decode();
+  Serial.println(card);
   
   check(card);
 }
-
