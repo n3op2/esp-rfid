@@ -59,7 +59,7 @@ void connectWifi() {
 }
 
 void handleOpen() {
-  success(false);
+  success();
   server.send(200, "tex\t/plain", "It's open, come on in!");
 }
 
@@ -121,18 +121,7 @@ String decode() {
   return decoded.substring(1);
 }
 
-void success(bool isNew) {
-  if (isNew) {
-    digitalWrite(RELAY, HIGH);
-    digitalWrite(CARD_ADDED_SOUND, HIGH);
-    delay(2000);
-    digitalWrite(SUCCESS, HIGH);
-    if (http.begin(client, "http://192.168.0.11/success")) {
-      http.end();
-    }
-    return delay(1000);
-  }
-
+void success() {
   digitalWrite(RELAY, HIGH);
   digitalWrite(CARD_ADDED_SOUND, HIGH);
   digitalWrite(SUCCESS, HIGH);
@@ -176,7 +165,7 @@ void addCard(String card) {
     store.putString(String(addedCards).c_str(), card);
     addedCards++;
     store.putInt("count", addedCards);
-    success(true);
+    success();
   }
 }
 
@@ -198,13 +187,13 @@ void check(String card) {
         ticks++;
       }
 
-      return success(false);
+      return success();
     }
   }
 
   for (int i = 0; i < addedCards; i++) {
     if (card == cards[i]) {
-      return success(false);
+      return success();
     }
   }
 
