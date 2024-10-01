@@ -23,7 +23,6 @@ String ssid = "hatushka";
 String password = "aaaaaaaa";
 int addedCards = 0;
 bool master = false;
-size_t cardL = sizeof("80 F3 83 20");
 int MAXTICKS = 30;
 unsigned long prev = 0;
 unsigned long interval = 30000;
@@ -135,27 +134,40 @@ bool validateCard(String card) {
   if (addedCards == 255) {
     addedCards = 0;
   }
-  for (int i = 0; i < addedCards; i++) {
-    if (card == cards[i]) {
-      digitalWrite(ERROR_LED, HIGH);
-      delay(2000);
-      return false;
-    }
+  if (isAddedCard(card)) {
+    digitalWrite(ERROR_LED, HIGH);
+    delay(2000);
+    return false;
   }
-
   return true;
 }
 
-bool validateMaster(String card) {
-  for (int i = 0; i < 5; i++) {
-    if (card == masters[i]) {
-      digitalWrite(ERROR_LED, HIGH);
-      delay(2000);
-
-      return false;
+bool isAddedCard(String card) {
+  for (int i = 0; i < addedCards; i++) {
+    if (card == cards[i]) {
+      return true;
     }
   }
 
+  return false;
+}
+
+bool isMaster(String card) {
+  for (int i = 0; i < 5; i++) {
+    if (card == masters[i]) {
+      return true;
+    }
+  }
+
+  return false;  
+}
+
+bool validateMaster(String card) {
+  if (isMaster(card)) {
+    digitalWrite(ERROR_LED, HIGH);
+    delay(2000);
+    return false;
+  }
   return true;
 }
 
