@@ -93,7 +93,10 @@ void success() {
   digitalWrite(CARD_ADDED_SOUND, HIGH);
   digitalWrite(SUCCESS, HIGH);
   delay(3000);
+  Serial.println("Success");
   if (http.begin(client, "http://192.168.0.11/success")) {
+    int status = http.GET();
+    Serial.println(status);
     http.end();
   }
 }
@@ -132,6 +135,7 @@ bool isMaster(String card) {
 
 bool validateMaster(String card) {
   if (isMaster(card)) {
+    Serial.println("Master card: " + card);
     digitalWrite(ERROR_LED, HIGH);
     delay(2000);
     return false;
@@ -143,8 +147,10 @@ void addCard(String card) {
   if (validateCard(card)) {
     cards[addedCards] = card;
     store.putString(String(addedCards).c_str(), card);
+    
     addedCards++;
     store.putInt("count", addedCards);
+    Serial.println("Added card: " + card);
     success();
   }
 }
@@ -213,21 +219,16 @@ void setup() {
 
 
 void loop() {
+  digitalWriteAllLow();
+  
+  if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()) {
+    String card = decode();
+    Serial.println("Decoded card: " +card);
+    check(card);
+  }
+
   wifiReconnect();
   if (WiFi.status() == WL_CONNECTED) {
     server.handleClient();
   }
-  digitalWriteAllLow();
-
-  if (!mfrc522.PICC_IsNewCardPresent()) {
-    return;
-  }
-  if (!mfrc522.PICC_ReadCardSerial()) {
-    return;
-  }
-
-  String card = decode();
-  Serial.println(card);
-  
-  check(card);
 }
