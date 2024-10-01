@@ -1,4 +1,3 @@
-#include <SPI.h>
 #include <MFRC522.h>
 #include <HTTPClient.h>
 #include <WebServer.h>
@@ -26,7 +25,7 @@ bool master = false;
 int MAXTICKS = 30;
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
-WebServer server(80);
+WebServer server(IPAddress(0,0,0,0), 80);
 HTTPClient http;
 
 WiFiMulti multi;
@@ -43,7 +42,8 @@ void setupPins() {
 
 void handleOpen() {
   success();
-  server.send(200, "tex\t/plain", "It's open, come on in!");
+  delay(1000);
+  server.send(200, "tex\t/plain", "It's open, come on in! 123");
 }
 
 void handleAdd() {
@@ -64,42 +64,22 @@ void handleList() {
   server.send(200, "tex\t/plain", list);
 }
 
-void loopWifi() {
+bool wifiReconnect() {
+  if (WiFi.status() != WL_CONNECTED) {
     if (multi.run(WIFI_MULTI_RUN_TIMEOUT_MS) == WL_CONNECTED) {
         Serial.print("Successfully connected to network: ");
-        Serial.println(WiFi.SSID());
+        Serial.println(WiFi.localIP());
+        return true;
     } else {
         Serial.println("Failed to connect to a WiFi network");
     }
-}
-
-void setupWifi() {
-    multi.addAP(ssid, password);
-}
-
-void setup() {
-  setupPins();
-  setupWifi();
-
-  Serial.begin(115200);
-
-  store.begin("rfid", false);
-  addedCards = store.getInt("count", 0);
-  if (addedCards > 0) {
-    for (int i = 0; i < addedCards; i++) {
-      String card;
-      card = store.getString(String(i).c_str(), ""); 
-      cards[i] = card;
-    }
   }
+  return false;
+}
 
-  delay(10);
-  SPI.begin();
-  mfrc522.PCD_Init();  // Initiate MFRC522
-  server.on("/open", handleOpen);
-  server.on("/card/add", handleAdd);
-  server.on("/card/list", handleList);
-  server.begin();
+void wifiSetup() {
+  multi.addAP(ssid, password);
+  wifiReconnect();
 }
 
 String decode() {
@@ -216,12 +196,38 @@ void digitalWriteAllLow() {
   digitalWrite(CARD_ADDED_SOUND, LOW);
 }
 
+void setup() {
+  Serial.begin(115200);
+  setupPins();
+  wifiSetup();
+  server.begin();
+
+
+  /*
+
+  store.begin("rfid", false);
+  addedCards = store.getInt("count", 0);
+  if (addedCards > 0) {
+    for (int i = 0; i < addedCards; i++) {
+      String card;
+      card = store.getString(String(i).c_str(), ""); 
+      cards[i] = card;
+    }
+  }
+
+  delay(10);
+  SPI.begin();
+  mfrc522.PCD_Init();  // Initiate MFRC522
+  server.on("/open", handleOpen);
+  server.on("/card/add", handleAdd);
+  server.on("/card/list", handleList);
+  server.begin();*/
+}
 
 void loop() {
-  digitalWriteAllLow();
   loopWifi();
-  server.handleClient();
-
+  digitalWriteAllLow();
+/*
   if (!mfrc522.PICC_IsNewCardPresent()) {
     return;
   }
@@ -233,4 +239,5 @@ void loop() {
   Serial.println(card);
   
   check(card);
+  */
 }
