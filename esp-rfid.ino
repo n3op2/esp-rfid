@@ -1,11 +1,11 @@
 #include <SPI.h>
 #include <MFRC522.h>
-#include <WiFi.h>
 #include <HTTPClient.h>
 #include <WebServer.h>
 #include <Preferences.h>
+#include <WiFi.h>
 #include <WiFiClient.h>
-
+#include <WiFiMulti.h>
 
 #define RST_PIN 27
 #define SS_PIN 5
@@ -19,42 +19,26 @@
 Preferences store;
 String masters[] = { "80 F3 83 20", "43 71 EA 10", "B3 59 38 0F", "03 40 F1 AA", "B9 2E D4 0D", "E3 10 D4 F8", "E3 74 CB F5", "05 17 C6 AE", "33 19 43 F6"};
 String cards[255] = {};  // for multiple cards
-String ssid = "hatushka";
-String password = "aaaaaaaa";
+const char* ssid = "hatushka";
+const char* password = "aaaaaaaa";
 int addedCards = 0;
 bool master = false;
 int MAXTICKS = 30;
-unsigned long prev = 0;
-unsigned long interval = 30000;
 
-IPAddress ip(192, 168, 0, 10);
-IPAddress gateway(192, 168, 0, 254);
-IPAddress subnet(255, 255, 255, 0);
-IPAddress dns(192, 168, 0, 1);
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 WebServer server(80);
 HTTPClient http;
-WiFiClient client;
 
-void initPins() {
+WiFiMulti multi;
+WiFiClient client;
+unsigned long WIFI_MULTI_RUN_TIMEOUT_MS = 30000;
+
+void setupPins() {
   pinMode(ERROR_LED, OUTPUT);
   pinMode(MASTER_LED, OUTPUT);
   pinMode(SUCCESS, OUTPUT);
   pinMode(RELAY, OUTPUT);
   pinMode(CARD_ADDED_SOUND, OUTPUT);
-}
-
-void connectWifi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.config(ip, gateway, subnet, dns);
-  WiFi.begin(ssid.c_str(), password.c_str());
-  int retries = 10;
-
-  while (retries > 0) {
-      delay(500);
-      retries--;
-  }
-  Serial.println(WiFi.localIP());
 }
 
 void handleOpen() {
@@ -80,9 +64,25 @@ void handleList() {
   server.send(200, "tex\t/plain", list);
 }
 
+void loopWifi() {
+    if (multi.run(WIFI_MULTI_RUN_TIMEOUT_MS) == WL_CONNECTED) {
+        Serial.print("Successfully connected to network: ");
+        Serial.println(WiFi.SSID());
+    } else {
+        Serial.println("Failed to connect to a WiFi network");
+    }
+}
+
+void setupWifi() {
+    multi.addAP(ssid, password);
+}
+
 void setup() {
-  initPins();
+  setupPins();
+  setupWifi();
+
   Serial.begin(115200);
+
   store.begin("rfid", false);
   addedCards = store.getInt("count", 0);
   if (addedCards > 0) {
@@ -92,15 +92,10 @@ void setup() {
       cards[i] = card;
     }
   }
-    Serial.end();
-    Serial.begin(9600);
 
-  store.putString("ssid", ssid); 
-  store.putString("password", password);
   delay(10);
   SPI.begin();
   mfrc522.PCD_Init();  // Initiate MFRC522
-  connectWifi();
   server.on("/open", handleOpen);
   server.on("/card/add", handleAdd);
   server.on("/card/list", handleList);
@@ -213,26 +208,18 @@ void check(String card) {
   delay(1000);
 }
 
-void hydrate() {
-  unsigned long cur = millis();
-
-  if (cur - prev >= interval) {
-    WiFi.disconnect();
-    WiFi.reconnect();
-    prev = cur;
-  }
-
+void digitalWriteAllLow() {
   digitalWrite(SUCCESS, LOW);
   digitalWrite(MASTER_LED, LOW);
   digitalWrite(ERROR_LED, LOW);
   digitalWrite(RELAY, LOW);
   digitalWrite(CARD_ADDED_SOUND, LOW);
-
 }
 
 
 void loop() {
-  hydrate();
+  digitalWriteAllLow();
+  loopWifi();
   server.handleClient();
 
   if (!mfrc522.PICC_IsNewCardPresent()) {
