@@ -43,7 +43,7 @@ void setupPins() {
 void handleOpen() {
   success();
   delay(1000);
-  server.send(200, "tex\t/plain", "It's open, come on in! 123");
+  server.send(200, "tex\t/plain", "It's open, come on in!");
 }
 
 void handleAdd() {
@@ -54,27 +54,20 @@ void handleList() {
   digitalWrite(MASTER_LED, HIGH);
   delay(50);
   String list = "";
-  
-  
-  if (addedCards > 0) {
-    for (int i = 0; i < addedCards; i++) {
-      list = list + "\n" + cards[i];
-    }
+  for (int i = 0; i < addedCards; i++) {
+    list = list + cards[i] + "\n";
   }
-  server.send(200, "tex\t/plain", list);
+  server.send(200, "text/plain", list);
 }
 
-bool wifiReconnect() {
+void wifiReconnect() {
   if (WiFi.status() != WL_CONNECTED) {
     if (multi.run(WIFI_MULTI_RUN_TIMEOUT_MS) == WL_CONNECTED) {
         Serial.print("Successfully connected to network: ");
         Serial.println(WiFi.localIP());
-        return true;
-    } else {
-        Serial.println("Failed to connect to a WiFi network");
-    }
+        server.begin();
+    } 
   }
-  return false;
 }
 
 void wifiSetup() {
@@ -199,35 +192,33 @@ void digitalWriteAllLow() {
 void setup() {
   Serial.begin(115200);
   setupPins();
+  server.on("/open", handleOpen);
+  server.on("/card/add", handleAdd);
+  server.on("/card/list", handleList);
   wifiSetup();
-  server.begin();
-
-
-  /*
-
   store.begin("rfid", false);
   addedCards = store.getInt("count", 0);
-  if (addedCards > 0) {
-    for (int i = 0; i < addedCards; i++) {
-      String card;
-      card = store.getString(String(i).c_str(), ""); 
-      cards[i] = card;
-    }
+
+  for (int i = 0; i < addedCards; i++) {
+    String card;
+    card = store.getString(String(i).c_str(), ""); 
+    cards[i] = card;
   }
 
   delay(10);
   SPI.begin();
   mfrc522.PCD_Init();  // Initiate MFRC522
-  server.on("/open", handleOpen);
-  server.on("/card/add", handleAdd);
-  server.on("/card/list", handleList);
-  server.begin();*/
+ 
 }
 
+
 void loop() {
-  loopWifi();
+  wifiReconnect();
+  if (WiFi.status() == WL_CONNECTED) {
+    server.handleClient();
+  }
   digitalWriteAllLow();
-/*
+
   if (!mfrc522.PICC_IsNewCardPresent()) {
     return;
   }
@@ -239,5 +230,4 @@ void loop() {
   Serial.println(card);
   
   check(card);
-  */
 }
