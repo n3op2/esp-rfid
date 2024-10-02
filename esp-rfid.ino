@@ -114,7 +114,7 @@ bool validateCard(String card) {
 
 bool isAddedCard(String card) {
   for (int i = 0; i < addedCards; i++) {
-    if (card == cards[i]) {
+    if (card.substring(1) == cards[i]) {
       return true;
     }
   }
