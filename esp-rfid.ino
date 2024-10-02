@@ -20,6 +20,7 @@ String masters[] = { "80 F3 83 20", "43 71 EA 10", "B3 59 38 0F", "03 40 F1 AA",
 String cards[255] = {};  // for multiple cards
 const char* ssid = "hatushka";
 const char* password = "aaaaaaaa";
+const char* success_endpoint = "http://192.168.0.105/success";
 int addedCards = 0;
 bool master = false;
 int MAXTICKS = 30;
@@ -83,8 +84,6 @@ String decode() {
     decoded.concat(String(mfrc522.uid.uidByte[i], HEX));
   }
   decoded.toUpperCase();
-  Serial.print(decoded.substring(1));
-
   return decoded.substring(1);
 }
 
@@ -94,7 +93,7 @@ void success() {
   digitalWrite(SUCCESS, HIGH);
   delay(3000);
   Serial.println("Success");
-  if (http.begin(client, "http://192.168.0.11/success")) {
+  if (http.begin(client, success_endpoint)) {
     int status = http.GET();
     Serial.println(status);
     http.end();
